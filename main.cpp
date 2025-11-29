@@ -26,9 +26,9 @@ void analyze_geometry(const vector<point>& points, string label, double (*dist_f
     double start_time = omp_get_wtime();
 
     #pragma omp parallel for default(none) \
-        shared(points, nearest_dists, furthest_dists, n, dist_func) \
-        reduction(+:total_nearest, total_furthest) \
-        schedule(static)
+            shared(points, nearest_dists, furthest_dists, n, dist_func) \
+            reduction(+:total_nearest, total_furthest) \
+            schedule(static)
     for (int i = 0; i < n; ++i) {
         double min = numeric_limits<double>::max();
         double max = 0.0;
