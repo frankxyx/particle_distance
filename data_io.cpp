@@ -71,7 +71,7 @@ void save_distances(const string& filename, const vector<double>& distances) {
 }
 
 void print_summary(double avg_nearest, double avg_furthest, int num_threads) {
-    cout << "---------------------------------------------------------------" << endl;
+    cout << "\n---------------------------------------------------------------" << endl;
     cout << "processing complete using " << num_threads << "threads" << endl;
     cout << fixed << setprecision(6);
     cout << "average distance to nearest neighbour: " << avg_nearest << endl;
