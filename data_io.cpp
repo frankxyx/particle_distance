@@ -6,13 +6,15 @@
 #include <iomanip>
 #include <cerrno>
 #include <cstring>
+#include <filesystem>
 
 #include "geometry.h"
 
 using namespace std;
+namespace fs = std::filesystem;
 
-vector<point> generate_random_points(int n) {
-    vector<point> points;
+vector<Point> generate_random_points(int n) {
+    vector<Point> points;
     points.reserve(n); // preallocate memory to avoid resizing
 
     // initialize Mersenne Twister random number generator
@@ -28,8 +30,8 @@ vector<point> generate_random_points(int n) {
     return points;
 }
 
-vector<point> read_csv(const string& filename) {
-    vector<point> points;
+vector<Point> read_csv(const string& filename) {
+    vector<Point> points;
     ifstream file(filename);
 
     if (!file.is_open()) {
@@ -41,7 +43,7 @@ vector<point> read_csv(const string& filename) {
     while (getline(file, line)) {
         stringstream ss(line);
         string val;
-        point p;
+        Point p;
 
         if (getline(ss, val, ',')) p.x = stod(val);
         if (getline(ss, val, ',')) p.y = stod(val);
@@ -54,11 +56,24 @@ vector<point> read_csv(const string& filename) {
     return points;
 }
 
-void save_distances(const string& filename, const vector<double>& distances) {
-    ofstream file(filename);
+void save_distances(const string& directory, const string& filename, const vector<double>& distances) {
+    try {
+        if (!fs::exists(directory)) {
+            fs::create_directory(directory);
+        }
+    }
+    catch (const fs::filesystem_error& e) {
+        cerr << "error creating directory: " << e.what() << endl;
+        return;
+    }
+
+    fs::path full_path = fs::path(directory) / filename;
+
+    ofstream file(full_path);
 
     if (!file.is_open()) {
-        cerr << "Error: Could not create output file " << filename << endl;
+        cerr << "error: could not create output file " << full_path << endl;
+        cerr << "reason: " << strerror(errno) << endl;
         return;
     }
 
@@ -67,6 +82,7 @@ void save_distances(const string& filename, const vector<double>& distances) {
     for (double d : distances) {
         file << d << "\n";
     }
+
     file.close();
 }
 

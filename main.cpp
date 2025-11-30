@@ -3,7 +3,6 @@
 #include <limits>
 #include <omp.h>
 #include <string>
-#include <iomanip>
 
 #include "geometry.h"
 #include "data_io.h"
@@ -13,8 +12,8 @@ using namespace std;
 // takes a function pointer 'dist_func' so we can pass either
 // standard_distance or wraparound_distance dynamically.
 
-void analyze_geometry(const vector<point>& points, string label, double (*dist_func)(const point&, const point&)) {
-    int n = points.size();
+void analyze_geometry_serial(const vector<Point>& points, const string& label, double (*dist_func)(const Point&, const Point&)) {
+    int n = static_cast<int>(points.size());
 
     vector<double> nearest_dists(n);
     vector<double> furthest_dists(n);
@@ -22,7 +21,51 @@ void analyze_geometry(const vector<point>& points, string label, double (*dist_f
     double total_nearest = 0.0;
     double total_furthest = 0.0;
 
-    cout << "start analyzing for: " << label << "geometry..." << endl;
+    cout << "start serial (single threaded) analyzing: " << label << "geometry..." << endl;
+    double start_time = omp_get_wtime();
+    int actual_threads = omp_get_num_threads();
+
+    for (int i = 0; i < n; ++i) {
+        double min_d = numeric_limits<double>::max();
+        double max_d = 0.0;
+
+        for (int j = 0; j < n; ++j) {
+            if (i == j) continue;
+
+            double d = dist_func(points[i], points[j]);
+
+            if (d < min_d) min_d = d;
+            if (d > max_d) max_d = d;
+        }
+        nearest_dists[i] = min_d;
+        furthest_dists[i] = max_d;
+
+        // shouldn't be any race condition here since only one thread should exist
+        total_nearest += min_d;
+        total_furthest += max_d;
+    }
+
+    double end_time = omp_get_wtime();
+    double avg_nearest = total_nearest / n;
+    double avg_furthest = total_furthest / n;
+
+    print_summary(avg_nearest, avg_furthest, actual_threads);
+    cout << "time taken: " << (end_time - start_time) << " seconds" << endl;
+
+    save_distances("data", "nearest_" + label + "_serial.txt", nearest_dists);
+    save_distances("data", "furthest_" + label + "_serial.txt", furthest_dists);
+}
+
+void analyze_geometry_standard(const vector<Point>& points, const string& label, double (*dist_func)(const Point&, const Point&)) {
+    int n = static_cast<int>(points.size());
+
+    vector<double> nearest_dists(n);
+    vector<double> furthest_dists(n);
+
+    double total_nearest = 0.0;
+    double total_furthest = 0.0;
+
+    cout << "start standard paralleled analyzing: " << label << "geometry..." << endl;
     double start_time = omp_get_wtime();
 
     #pragma omp parallel for default(none) \
@@ -55,13 +98,12 @@ void analyze_geometry(const vector<point>& points, string label, double (*dist_f
     print_summary(avg_nearest, avg_furthest, omp_get_max_threads());
     cout << "time taken: " << (end_time - start_time) << " seconds." << endl;
 
-    save_distances("nearest_" + label + ".txt", nearest_dists);
-    save_distances("furthest_" + label + ".txt", furthest_dists);
-    cout << "saved output files for " << label << "\n" << endl;
+    save_distances("data", "nearest_" + label + ".txt", nearest_dists);
+    save_distances("data", "furthest_" + label + ".txt", furthest_dists);
 }
 
-void analyze_geometry_symmetric(const vector<point>& points, string label, double (*dist_func)(const point&, const point&)) {
-    int n = points.size();
+void analyze_geometry_symmetric(const vector<Point>& points, const string& label, double (*dist_func)(const Point&, const Point&)) {
+    int n = static_cast<int>(points.size());
 
     vector<double> nearest_dists(n, numeric_limits<double>::max());
     vector<double> furthest_dists(n, -1.0);
@@ -71,7 +113,7 @@ void analyze_geometry_symmetric(const vector<point>& points, string label, doubl
         omp_init_lock(&locks[i]);
     }
 
-    cout << "start symmetric analyzing for " << label << "geometry..." << endl;
+    cout << "start symmetric parallelled analyzing for " << label << "geometry..." << endl;
     double start_time = omp_get_wtime();
 
     // scheduling dynamically is often better in this case since the inner loop gets shorter as i increase
@@ -114,13 +156,12 @@ void analyze_geometry_symmetric(const vector<point>& points, string label, doubl
     print_summary(avg_nearest, avg_furthest, omp_get_max_threads());
     cout << "time taken: " << (end_time - start_time) << endl;
 
-    save_distances("nearest_" + label + "_sym.txt", nearest_dists);
-    save_distances("furthest_" + label + "_sym.txt", furthest_dists);
-    cout << "saved output files for " << label << "_sym" << "\n" << endl;
+    save_distances("data", "nearest_" + label + "_sym.txt", nearest_dists);
+    save_distances("data", "furthest_" + label + "_sym.txt", furthest_dists);
 }
 
-void analyze_geometry_optimal(const vector<point>& points, string label, double (*dist_func)(const point&, const point&)) {
-    int n = points.size();
+void analyze_geometry_optimal(const vector<Point>& points, const string& label, double (*dist_func)(const Point&, const Point&)) {
+    int n = static_cast<int>(points.size());
 
     vector<double> nearest_dists(n, numeric_limits<double>::max());
     vector<double> furthest_dists(n, -1.0);
@@ -130,7 +171,7 @@ void analyze_geometry_optimal(const vector<point>& points, string label, double 
         omp_init_lock(&locks[i]);
     }
 
-    cout << "start optimal analyzing for " << label << "geometry..." << endl;
+    cout << "start symmetric (smart skipping) analyzing " << label << "geometry..." << endl;
     double start_time = omp_get_wtime();
 
     // scheduling dynamically is often better in this case since the inner loop gets shorter as i increase
@@ -175,22 +216,25 @@ void analyze_geometry_optimal(const vector<point>& points, string label, double 
     print_summary(avg_nearest, avg_furthest, omp_get_max_threads());
     cout << "time taken: " << (end_time - start_time) << endl;
 
-    save_distances("nearest_" + label + "_opt.txt", nearest_dists);
-    save_distances("furthest_" + label + "_opt.txt", furthest_dists);
-    cout << "saved output files for " << label << "_opt" << "\n" << endl;
+    save_distances("data", "nearest_" + label + "_opt.txt", nearest_dists);
+    save_distances("data", "furthest_" + label + "_opt.txt", furthest_dists);
 }
 
 int main(int argc, char * argv[]) {
+    // code for generating random points
     /*int N = 10000;
     cout << "generating " << N << "random points..." << endl;
-    vector<point> points = generate_random_points(N);
+    vector<Point> points = generate_random_points(N);
 */
 
-    vector<point> points = read_csv("200000_locations.csv");
+    //this takes a long time to run, use a smaller number of points for debugging purposes
+    vector<Point> points = read_csv("200000_locations.csv");
 
+    analyze_geometry_serial(points, "standard", standard_distance);
+    analyze_geometry_serial(points, "wraparound", wraparound_distance);
 
-    analyze_geometry(points, "standard", standard_distance);
-    analyze_geometry(points, "wraparound", wraparound_distance);
+    analyze_geometry_standard(points, "standard", standard_distance);
+    analyze_geometry_standard(points, "wraparound", wraparound_distance);
 
     analyze_geometry_symmetric(points, "standard", standard_distance);
     analyze_geometry_symmetric(points, "wraparound", wraparound_distance);

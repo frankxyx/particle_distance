@@ -7,10 +7,10 @@
 
 using namespace std;
 
-vector<point> generate_random_points(int n);
-vector<point> read_csv(const string& filename);
+vector<Point> generate_random_points(int n);
+vector<Point> read_csv(const string& filename);
 
-void save_distances(const string& filename, const vector<double> & distances);
+void save_distances(const string& directory, const string& filename, const vector<double> & distances);
 void print_summary(double avg_nearest, double avg_furthest, int num_threads);
 
 #endif
