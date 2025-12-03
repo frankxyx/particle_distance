@@ -222,13 +222,12 @@ void analyze_geometry_optimal(const vector<Point>& points, const string& label, 
 
 int main(int argc, char * argv[]) {
     // code for generating random points
-    /*int N = 10000;
+    int N = 10000;
     cout << "generating " << N << "random points..." << endl;
     vector<Point> points = generate_random_points(N);
-*/
 
     //this takes a long time to run, use a smaller number of points for debugging purposes
-    vector<Point> points = read_csv("200000_locations.csv");
+    //vector<Point> points = read_csv("200000_locations.csv");
 
     analyze_geometry_serial(points, "standard", standard_distance);
     analyze_geometry_serial(points, "wraparound", wraparound_distance);
